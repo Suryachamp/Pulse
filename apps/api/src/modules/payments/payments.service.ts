@@ -8,7 +8,6 @@ import { paginate } from '../../utils/http';
 import { audit } from '../audit/audit.service';
 import { notifyRoles } from '../notifications/notifications.service';
 import { lockOrder } from '../orders/order-lock';
-import { withPaymentInfo } from '../orders/orders.service';
 
 type PaymentCreate = z.output<typeof paymentInputSchema>;
 
