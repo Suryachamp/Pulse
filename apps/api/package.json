@@ -9,11 +9,12 @@
     "start": "node dist/src/server.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "node --env-file=../../.env node_modules/prisma/build/index.js migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx --env-file=../../.env prisma/seed.ts",
     "postinstall": "prisma generate",
-    "db:seed:prod": "node dist/prisma/seed.js"
+    "db:seed:prod": "node dist/prisma/seed.js",
+    "db:studio": "node --env-file=../../.env node_modules/prisma/build/index.js studio"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
