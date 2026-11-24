@@ -7,7 +7,7 @@
 **Jobs.**
 - Know what's in stock and never sell what isn't there.
 - Take an order from draft to delivered.
-- Know who owes money.
+- Know who owes money, and send customers an invoice for it.
 - Keep the team's follow-ups in one place.
 - See how the business is doing, from real data.
 
@@ -136,6 +136,15 @@ Covered by `apps/api/test/concurrency.test.ts`:
 - Only the assignee, the creator or a manager can edit a task. Only the creator or a manager can delete it.
 - A task is overdue when it has a due date in the past and its status isn't `DONE`. This is computed server-side.
 
+### Invoices
+
+- Every non-draft order has an invoice, numbered after the order. It is built on request from the order, its payments and the seller details in Settings, and is never stored, so it always shows the latest balance.
+- **Issue date** is when the order was confirmed. **Due date** is the issue date plus the organization's `paymentTermsDays` (default 14, CHECK-constrained to 0–365). Terms are read when the invoice is viewed, so changing them moves the due date of open invoices too.
+- **Status** (`invoiceStatus` in shared): `VOID` for cancelled orders, `PAID` when nothing is outstanding, `OVERDUE` when a balance remains after the due date, otherwise `DUE`.
+- Drafts return 409 `INVOICE_NOT_AVAILABLE`.
+- The invoice leaves out internal fields: order notes, payment notes and who recorded each payment.
+- The web page renders it as a light paper document at `/app/orders/:id/invoice`, outside the app shell; the browser's print dialog saves it as PDF.
+
 ### Analytics definitions
 
 | Metric | Definition |
@@ -170,7 +179,7 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 | `GET /auth/me` | session | User, organizations, active organization, role, permissions |
 | `POST /auth/switch-organization` | session | Must be a member |
 | `POST /auth/change-password` | session | Signs out other sessions |
-| `PATCH /organization` | org:manage | Name, default threshold, default tax |
+| `PATCH /organization` | org:manage | Name, default threshold, default tax, invoice details (`invoiceAddress`, `invoiceEmail`, `invoicePhone`, `invoiceTaxId`, `invoiceFooter`, `paymentTermsDays`) |
 | `GET /members` · `POST /members` · `PATCH/DELETE /members/:id` | members:read / members:manage | Admins can't manage owners or admins. The last owner can't be removed. |
 | `GET /customers?q&status&tag&sort&dir&page` | customers:read | Includes order count, lifetime value, outstanding, last order |
 | `GET /customers/tags` · `GET /customers/:id` | customers:read | Detail includes stats, orders and activity timeline |
@@ -181,6 +190,7 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 | `POST /products/:id/adjustments` | inventory:adjust | `{ type: RESTOCK\|ADJUSTMENT, quantity, reason }` |
 | `GET /orders?q&status&paymentStatus&customerId&sort` · `GET /orders/:id` | orders:read | Detail includes items, payments, history and allowed transitions |
 | `POST /orders` · `PUT /orders/:id` (draft only) | orders:write | Client prices and totals are ignored |
+| `GET /orders/:id/invoice` | orders:read | Customer-facing invoice. 409 `INVOICE_NOT_AVAILABLE` for drafts |
 | `POST /orders/:id/transitions` | orders:write (+ orders:cancel to cancel) | `{ status, reason? }` |
 | `POST /orders/:id/payments` | payments:record (refunds: payments:refund) | `{ kind, method, amountCents, idempotencyKey, reference?, note?, receivedAt? }`. Returns 201 for new, 200 for a replay. |
 | `GET /payments?q&kind&method&from&to` | payments:read | Includes collected and refunded totals for the filter |
@@ -207,13 +217,14 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 
 | Suite | Count | Covers |
 |---|---|---|
-| `packages/shared` | 7 | Transitions, totals, payment status, money parsing, role management |
-| `apps/api` (Supertest + real Postgres) | 50 | Auth, sessions, CSRF, RBAC, immediate role revocation, tenant isolation, order lifecycle, stock invariants, DB constraints, low-stock notifications, payments (idempotency, overpayment, refunds, duplicates), audit immutability, tasks, analytics correctness, concurrency |
+| `packages/shared` | 9 | Transitions, totals, payment status, money parsing, role management, invoice due dates and status |
+| `apps/api` (Supertest + real Postgres) | 60 | Auth, sessions, CSRF, RBAC, immediate role revocation, tenant isolation, order lifecycle, stock invariants, DB constraints, low-stock notifications, payments (idempotency, overpayment, refunds, duplicates), audit immutability, tasks, analytics correctness, concurrency, invoice settings and invoices |
 | `apps/web` (Vitest + RTL) | 7 | Delta semantics, server-error mapping, stock labels |
-| `apps/web/e2e` (Playwright) | 7 | Landing → sign-up, form validation, full sell-to-paid journey, out-of-stock refusal, command palette, staff restrictions, mobile navigation |
+| `apps/web/e2e` (Playwright) | 8 | Landing → sign-up, invoice settings and printing, form validation, full sell-to-paid journey, out-of-stock refusal, command palette, staff restrictions, mobile navigation |
 
 ## 9. Known limitations
 
+- **Invoices are printed, not sent.** There is no emailing or stored PDF; use the browser's "Save as PDF". Invoices use the current seller details, not a snapshot from when they were issued.
 - **No email delivery.** Teammates are added with a starting password the owner shares privately. There are no password-reset emails yet.
 - **Single currency** per organization. No multi-currency or FX.
 - **No configurable time zone.** Analytics bucket by UTC day; a per-organization time zone would shift day boundaries for non-UTC businesses.

@@ -1,6 +1,6 @@
 # PULSE
 
-PULSE is an operations workspace for small and medium-sized businesses. It keeps customers, orders, inventory, payments, team tasks and an audit trail in one multi-tenant application, so the numbers everyone sees come from the same transactions.
+PULSE is an operations workspace for small and medium-sized businesses. It keeps customers, orders, inventory, payments, printable invoices, team tasks and an audit trail in one multi-tenant application, so the numbers everyone sees come from the same transactions.
 
 - **Backend:** Node 22, Express, TypeScript, Prisma 6, PostgreSQL 16, Zod
 - **Frontend:** React 18, Vite 6, Tailwind CSS 3, Radix (shadcn-style components), TanStack Query, React Hook Form, Recharts, Framer Motion, GSAP, React Three Fiber

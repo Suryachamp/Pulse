@@ -78,6 +78,14 @@ model Organization {
   defaultLowStockThreshold Int      @default(5)
   defaultTaxRateBps        Int      @default(0)
   orderSequence            Int      @default(0)
+  /// Business details printed on invoices.
+  invoiceAddress           String?
+  invoiceEmail             String?
+  invoicePhone             String?
+  invoiceTaxId             String?
+  invoiceFooter            String?
+  /// Days after confirmation that an invoice falls due. CHECK keeps it within 0..365.
+  paymentTermsDays         Int      @default(14)
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 

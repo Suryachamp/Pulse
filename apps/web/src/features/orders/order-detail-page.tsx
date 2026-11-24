@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Check, CreditCard, Pencil, RotateCcw, ShoppingBag, Undo2 } from 'lucide-react';
+import { ArrowLeft, Check, CreditCard, FileText, Pencil, RotateCcw, ShoppingBag, Undo2 } from 'lucide-react';
 import type { OrderStatus } from '@pulse/shared';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -98,6 +98,7 @@ export default function OrderDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           {o.status === 'DRAFT' && can('orders:write') && <Button asChild><Link to={`/app/orders/${o.id}/edit`}><Pencil />Edit draft</Link></Button>}
+          {o.status !== 'DRAFT' && <Button asChild variant="outline"><Link to={`/app/orders/${o.id}/invoice`}><FileText />Invoice</Link></Button>}
           {actions.map((s) => (
             <Button key={s} variant={s === 'CANCELLED' ? 'outline' : 'primary'} className={s === 'CANCELLED' ? 'text-rose' : undefined} onClick={() => setPending(s)}>
               {s === 'CANCELLED' ? <RotateCcw /> : <Check />}{ACTIONS[s].label}

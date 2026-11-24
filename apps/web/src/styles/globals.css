@@ -44,3 +44,10 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Printing produces paper documents (invoices): white page, no dark canvas. */
+@media print {
+  @page { margin: 16mm 14mm; }
+  html, body { background: #fff !important; color-scheme: light; }
+  [data-sonner-toaster] { display: none !important; }
+}

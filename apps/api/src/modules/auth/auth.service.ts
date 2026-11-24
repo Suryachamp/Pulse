@@ -53,7 +53,10 @@ export async function getMe(userId: string, activeOrganizationId: string | null)
   const organization = active
     ? await prisma.organization.findUnique({
         where: { id: active.organization.id },
-        select: { id: true, name: true, slug: true, currency: true, defaultLowStockThreshold: true, defaultTaxRateBps: true },
+        select: {
+          id: true, name: true, slug: true, currency: true, defaultLowStockThreshold: true, defaultTaxRateBps: true,
+          invoiceAddress: true, invoiceEmail: true, invoicePhone: true, invoiceTaxId: true, invoiceFooter: true, paymentTermsDays: true,
+        },
       })
     : null;
   return {

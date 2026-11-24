@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ROLES } from '../enums';
+import { optionalText } from './common';
 
 export const emailSchema = z.string().trim().toLowerCase().email().max(254);
 export const passwordSchema = z
@@ -40,5 +41,12 @@ export const updateOrgSchema = z.object({
   name: z.string().trim().min(2).max(100).optional(),
   defaultLowStockThreshold: z.number().int().min(0).max(100_000).optional(),
   defaultTaxRateBps: z.number().int().min(0).max(10_000).optional(),
+  /** Business details printed on invoices. Empty strings clear a field. */
+  invoiceAddress: optionalText(500),
+  invoiceEmail: z.union([emailSchema, z.literal('').transform(() => null)]).nullable().optional(),
+  invoicePhone: optionalText(40),
+  invoiceTaxId: optionalText(60),
+  invoiceFooter: optionalText(1000),
+  paymentTermsDays: z.number().int().min(0).max(365).optional(),
 });
 export type UpdateOrgInput = z.infer<typeof updateOrgSchema>;

@@ -54,7 +54,12 @@ async function main() {
   if (!owner || !manager || !staff || !staff2) throw new Error('user creation failed');
 
   const org = await prisma.organization.create({
-    data: { name: 'Harbor & Pine Supply Co.', slug: 'harbor-pine', defaultLowStockThreshold: 8, defaultTaxRateBps: 825, createdAt: at(190, 0) },
+    data: {
+      name: 'Harbor & Pine Supply Co.', slug: 'harbor-pine', defaultLowStockThreshold: 8, defaultTaxRateBps: 825, createdAt: at(190, 0),
+      invoiceAddress: '218 Wharf Street\nPortland, ME 04101', invoiceEmail: 'billing@harborpine.example', invoicePhone: '(207) 555-0142',
+      invoiceTaxId: 'EIN 00-0000000', paymentTermsDays: 30,
+      invoiceFooter: 'Thank you for your business. Pay by bank transfer or check payable to Harbor & Pine Supply Co.',
+    },
   });
   const orgId = org.id;
   await prisma.membership.createMany({

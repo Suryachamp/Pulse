@@ -15,6 +15,7 @@ const CustomerDetail = lazy(() => import('@/features/customers/customer-detail-p
 const Orders = lazy(() => import('@/features/orders/orders-page'));
 const OrderDetail = lazy(() => import('@/features/orders/order-detail-page'));
 const OrderEditor = lazy(() => import('@/features/orders/order-editor-page'));
+const Invoice = lazy(() => import('@/features/invoices/invoice-page'));
 const Inventory = lazy(() => import('@/features/inventory/inventory-page'));
 const ProductDetail = lazy(() => import('@/features/inventory/product-detail-page'));
 const Tasks = lazy(() => import('@/features/tasks/tasks-page'));
@@ -36,6 +37,8 @@ export const router = createBrowserRouter([
   { path: '/', element: <Landing /> },
   { path: '/login', element: <GuestOnly><Login /></GuestOnly> },
   { path: '/register', element: <GuestOnly><Register /></GuestOnly> },
+  // Full-page document, outside the app shell so it prints cleanly.
+  { path: '/app/orders/:id/invoice', element: <RequireAuth><Invoice /></RequireAuth> },
   {
     path: '/app',
     element: <RequireAuth><AppLayout /></RequireAuth>,

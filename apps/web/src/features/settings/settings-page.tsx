@@ -9,7 +9,7 @@ import { api } from '@/lib/api';
 import { applyServerErrors } from '@/lib/forms';
 import { ME_KEY, useSession } from '@/lib/session';
 import { Button } from '@/components/ui/button';
-import { Field, Input } from '@/components/ui/input';
+import { Field, Input, Textarea } from '@/components/ui/input';
 import { PageHeader } from '@/components/ui/feedback';
 
 const orgSchema = z.object({
@@ -52,6 +52,53 @@ function OrgSettings() {
   );
 }
 
+const invoiceSchema = z.object({
+  invoiceAddress: z.string().trim().max(500),
+  invoiceEmail: z.union([z.literal(''), z.string().trim().email('Enter a valid email')]),
+  invoicePhone: z.string().trim().max(40),
+  invoiceTaxId: z.string().trim().max(60),
+  invoiceFooter: z.string().trim().max(1000),
+  paymentTermsDays: z.coerce.number({ invalid_type_error: 'Enter a number of days' }).int('Whole days only').min(0, 'Can’t be negative').max(365, 'At most 365 days'),
+});
+type InvoiceValues = z.input<typeof invoiceSchema>;
+const INVOICE_FIELDS = ['invoiceAddress', 'invoiceEmail', 'invoicePhone', 'invoiceTaxId', 'invoiceFooter', 'paymentTermsDays'] as const;
+
+function InvoiceSettings() {
+  const { me } = useSession();
+  const qc = useQueryClient();
+  const org = me?.organization;
+  const { register, handleSubmit, reset, setError, formState: { errors, isDirty } } = useForm<InvoiceValues>({ resolver: zodResolver(invoiceSchema) });
+  useEffect(() => {
+    if (org) reset({
+      invoiceAddress: org.invoiceAddress ?? '', invoiceEmail: org.invoiceEmail ?? '', invoicePhone: org.invoicePhone ?? '',
+      invoiceTaxId: org.invoiceTaxId ?? '', invoiceFooter: org.invoiceFooter ?? '', paymentTermsDays: org.paymentTermsDays,
+    });
+  }, [org, reset]);
+  const save = useMutation({
+    // Empty strings are sent as-is; the API stores them as "not set".
+    mutationFn: (raw: InvoiceValues) => api.patch('/organization', invoiceSchema.parse(raw)),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ME_KEY }); qc.invalidateQueries({ queryKey: ['invoice'] }); toast.success('Invoice details saved'); },
+    onError: (err) => applyServerErrors(err, setError, [...INVOICE_FIELDS]),
+  });
+  return (
+    <section className="panel p-5" aria-label="Invoices">
+      <h2 className="font-semibold">Invoices</h2>
+      <p className="mb-5 mt-1 text-sm text-mist">Printed on every invoice. Changes apply to all invoices, including ones already issued.</p>
+      <form onSubmit={handleSubmit((v) => save.mutate(v))} className="grid max-w-lg gap-4" noValidate>
+        <Field id="inv-address" label="Business address" error={errors.invoiceAddress?.message}><Textarea id="inv-address" rows={3} {...register('invoiceAddress')} /></Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field id="inv-email" label="Billing email" error={errors.invoiceEmail?.message}><Input id="inv-email" type="email" {...register('invoiceEmail')} /></Field>
+          <Field id="inv-phone" label="Phone" error={errors.invoicePhone?.message}><Input id="inv-phone" type="tel" {...register('invoicePhone')} /></Field>
+          <Field id="inv-taxid" label="Tax ID" error={errors.invoiceTaxId?.message}><Input id="inv-taxid" {...register('invoiceTaxId')} /></Field>
+          <Field id="inv-terms" label="Payment terms (days)" hint="0 means due on receipt." error={errors.paymentTermsDays?.message}><Input id="inv-terms" type="number" min={0} max={365} {...register('paymentTermsDays')} /></Field>
+        </div>
+        <Field id="inv-footer" label="Footer note" hint="Payment instructions, bank details or a thank-you." error={errors.invoiceFooter?.message}><Textarea id="inv-footer" rows={3} {...register('invoiceFooter')} /></Field>
+        <div><Button type="submit" variant="primary" disabled={!isDirty} loading={save.isPending}>Save invoice details</Button></div>
+      </form>
+    </section>
+  );
+}
+
 function PasswordSettings() {
   const { register, handleSubmit, reset, setError, formState: { errors } } = useForm<PwValues>({ resolver: zodResolver(pwSchema) });
   const save = useMutation({
@@ -80,6 +127,7 @@ export default function SettingsPage() {
       <PageHeader title="Settings" description={`Signed in as ${me?.user.email}`} />
       <div className="grid gap-6">
         {can('org:manage') && <OrgSettings />}
+        {can('org:manage') && <InvoiceSettings />}
         <PasswordSettings />
       </div>
     </div>

@@ -1,4 +1,4 @@
-import type { MovementType, NotificationType, OrderStatus, PaymentKind, PaymentMethod, PaymentStatus, Permission, Role, TaskPriority, TaskStatus } from '@pulse/shared';
+import type { InvoiceStatus, MovementType, NotificationType, OrderStatus, PaymentKind, PaymentMethod, PaymentStatus, Permission, Role, TaskPriority, TaskStatus } from '@pulse/shared';
 
 export interface Paginated<T> {
   data: T[];
@@ -11,9 +11,18 @@ export interface Paginated<T> {
 export interface Me {
   user: { id: string; email: string; name: string };
   organizations: { id: string; name: string; slug: string; role: Role }[];
-  organization: { id: string; name: string; slug: string; currency: string; defaultLowStockThreshold: number; defaultTaxRateBps: number } | null;
+  organization: (InvoiceSettings & { id: string; name: string; slug: string; currency: string; defaultLowStockThreshold: number; defaultTaxRateBps: number }) | null;
   role: Role | null;
   permissions: Permission[];
+}
+
+export interface InvoiceSettings {
+  invoiceAddress: string | null;
+  invoiceEmail: string | null;
+  invoicePhone: string | null;
+  invoiceTaxId: string | null;
+  invoiceFooter: string | null;
+  paymentTermsDays: number;
 }
 
 export interface PersonRef { id: string; name: string }
@@ -186,4 +195,28 @@ export interface Dashboard {
   activity: TimelineEntry[];
   alerts: Alert[];
   onboarding: { id: string; label: string; done: boolean; href: string }[];
+}
+
+export interface Invoice {
+  id: string;
+  number: number;
+  orderStatus: OrderStatus;
+  invoiceStatus: InvoiceStatus;
+  issuedAt: string;
+  dueAt: string;
+  paymentTermsDays: number;
+  cancelledAt: string | null;
+  currency: string;
+  seller: { name: string; address: string | null; email: string | null; phone: string | null; taxId: string | null; footer: string | null };
+  customer: { name: string; company: string | null; email: string | null; phone: string | null; address: string | null };
+  items: { id: string; productName: string; sku: string; unitPriceCents: number; quantity: number; lineTotalCents: number }[];
+  subtotalCents: number;
+  discountCents: number;
+  taxRateBps: number;
+  taxCents: number;
+  totalCents: number;
+  paidCents: number;
+  refundedCents: number;
+  balanceDueCents: number;
+  payments: { id: string; kind: PaymentKind; method: PaymentMethod; amountCents: number; reference: string | null; receivedAt: string }[];
 }

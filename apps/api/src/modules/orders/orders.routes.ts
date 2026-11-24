@@ -4,6 +4,7 @@ import { ctxOf, requirePermission } from '../../middleware/auth';
 import { handler, idParam, parse } from '../../utils/http';
 import * as orders from './orders.service';
 import * as payments from '../payments/payments.service';
+import { getInvoice } from './invoice.service';
 
 export const ordersRouter = Router();
 
@@ -12,6 +13,9 @@ ordersRouter.get('/', requirePermission('orders:read'), handler(async (req, res)
 }));
 ordersRouter.get('/:id', requirePermission('orders:read'), handler(async (req, res) => {
   res.json(await orders.getOrder(ctxOf(req), idParam(req, 'id', 'Order')));
+}));
+ordersRouter.get('/:id/invoice', requirePermission('orders:read'), handler(async (req, res) => {
+  res.json(await getInvoice(ctxOf(req), idParam(req, 'id', 'Order')));
 }));
 ordersRouter.post('/', requirePermission('orders:write'), handler(async (req, res) => {
   res.status(201).json(await orders.createOrder(ctxOf(req), parse(orderInputSchema, req.body)));
