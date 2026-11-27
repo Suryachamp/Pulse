@@ -12,6 +12,7 @@ import { Select } from '@/components/ui/select';
 import { Table, Td, Th, Tr } from '@/components/ui/table';
 import { Tabs, TabsList } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
+import { ExportButton } from '@/components/shared/export-button';
 
 const DEFAULTS = { q: '', kind: '', method: '', from: '', to: '', page: '1' };
 
@@ -29,7 +30,12 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <PageHeader title="Payments" description="Money received and refunded, recorded against orders. PULSE tracks payments; it doesn’t process cards." />
+      <PageHeader
+        title="Payments"
+        description="Money received and refunded, recorded against orders. PULSE tracks payments; it doesn’t process cards."
+        // Exports the page's date range (same day boundaries as the list).
+        actions={<ExportButton dataset="payments" from={f.from ? new Date(`${f.from}T00:00:00`).toISOString() : undefined} to={f.to ? new Date(`${f.to}T23:59:59`).toISOString() : undefined} />}
+      />
       {list.data && (
         <dl className="panel mb-6 grid grid-cols-3 divide-x divide-line/60">
           <div className="px-5 py-4"><dt className="text-xs text-faint">Collected</dt><dd className="tnum mt-1 text-lg font-semibold">{money(list.data.totals.collectedCents)}</dd></div>

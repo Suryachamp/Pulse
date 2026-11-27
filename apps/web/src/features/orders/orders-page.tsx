@@ -14,6 +14,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
 import { SortTh, Table, Td, Th, Tr } from '@/components/ui/table';
 import { Tabs, TabsList } from '@/components/ui/tabs';
+import { ExportButton } from '@/components/shared/export-button';
 
 type Sort = 'number' | 'createdAt' | 'totalCents';
 const DEFAULTS = { q: '', status: '', paymentStatus: '', overdue: '', sort: 'createdAt', dir: 'desc', page: '1' };
@@ -31,7 +32,7 @@ export default function OrdersPage() {
       <PageHeader
         title="Orders"
         description="Draft, confirm, fulfil and complete. Stock is reserved when an order is confirmed."
-        actions={can('orders:write') && <Button asChild variant="primary"><Link to="/app/orders/new"><Plus />New order</Link></Button>}
+        actions={<><ExportButton dataset="orders" />{can('orders:write') && <Button asChild variant="primary"><Link to="/app/orders/new"><Plus />New order</Link></Button>}</>}
       />
       <div className="panel">
         <div className="flex flex-col gap-3 border-b border-line/60 p-4 xl:flex-row xl:items-center">

@@ -17,6 +17,7 @@ import { ordersRouter, paymentsRouter } from './modules/orders/orders.routes';
 import { tasksRouter } from './modules/tasks/tasks.routes';
 import { notificationsRouter } from './modules/notifications/notifications.routes';
 import { analyticsRouter, auditRouter, dashboardRouter } from './modules/analytics/analytics.routes';
+import { exportsRouter } from './modules/exports/exports.routes';
 
 export function createApp() {
   const app = express();
@@ -51,6 +52,7 @@ export function createApp() {
   tenant.use('/notifications', notificationsRouter);
   tenant.use('/analytics', analyticsRouter);
   tenant.use('/dashboard', dashboardRouter);
+  tenant.use('/exports', exportsRouter);
   tenant.use('/', auditRouter);
   api.use(tenant);
 

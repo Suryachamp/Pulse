@@ -13,6 +13,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
 import { SortTh, Table, Td, Th, Tr } from '@/components/ui/table';
 import { Tabs, TabsList } from '@/components/ui/tabs';
+import { ExportButton } from '@/components/shared/export-button';
 import { CustomerForm } from './customer-form';
 
 type Sort = 'name' | 'createdAt' | 'totalSpent' | 'lastOrderAt';
@@ -46,7 +47,7 @@ export default function CustomersPage() {
       <PageHeader
         title="Customers"
         description="Everyone you sell to, with their order history and balance."
-        actions={can('customers:write') && <Button variant="primary" onClick={() => setCreating(true)}><Plus />New customer</Button>}
+        actions={<><ExportButton dataset="customers" />{can('customers:write') && <Button variant="primary" onClick={() => setCreating(true)}><Plus />New customer</Button>}</>}
       />
       <div className="panel">
         <div className="flex flex-col gap-3 border-b border-line/60 p-4 lg:flex-row lg:items-center">

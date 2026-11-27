@@ -115,5 +115,8 @@ test('staff see only what their role allows', async ({ page, browser }) => {
   await expect(staff.getByRole('region', { name: 'Revenue, last 30 days' })).toHaveCount(0);
   await staff.goto('/app/analytics');
   await expect(staff.getByText('You don’t have access to this page')).toBeVisible();
+  await staff.goto('/app/orders');
+  await expect(staff.getByRole('heading', { name: 'Orders' })).toBeVisible();
+  await expect(staff.getByRole('link', { name: 'Export CSV' })).toHaveCount(0);
   await staff.close();
 });

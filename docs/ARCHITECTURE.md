@@ -17,7 +17,7 @@ Each **organization** is a tenant. A user can belong to several organizations, w
 |---|---|
 | Owner | Full control, including other owners. Every organization keeps at least one. |
 | Admin | Settings, members below admin, refunds, full audit log |
-| Manager | Operations: products, stock adjustments, cancellations, recording payments, analytics, assigning tasks |
+| Manager | Operations: products, stock adjustments, cancellations, recording payments, analytics, CSV exports, assigning tasks |
 | Staff | Day-to-day: customers, orders (create, confirm, fulfil), their own tasks |
 
 The full permission matrix lives in [`packages/shared/src/permissions.ts`](../packages/shared/src/permissions.ts). The API enforces it on every route, and the Team page renders the same matrix.
@@ -146,6 +146,14 @@ Covered by `apps/api/test/concurrency.test.ts`:
 - The invoice leaves out internal fields: order notes, payment notes and who recorded each payment.
 - The web page renders it as a light paper document at `/app/orders/:id/invoice`, outside the app shell; the browser's print dialog saves it as PDF.
 
+### CSV exports
+
+- `GET /exports/orders.csv`, `/exports/customers.csv` and `/exports/payments.csv`, for owners, admins and managers (`data:export`). Optional `from`/`to` filter orders by creation date and payments by received date.
+- Amounts are plain decimals (`1234.56`), timestamps are ISO 8601 UTC. Payment refunds are negative, so the `amount` column sums to net cash. Customer totals use the same definitions as the customer list (booked orders only).
+- Files are UTF-8 with a byte-order mark (so Excel reads accents correctly), CRLF line endings and RFC 4180 quoting. Text cells that a spreadsheet would run as a formula (`=`, `+`, `-`, `@`, tab, CR) get a leading `'`; plain numbers are left alone (`toCsv` in shared).
+- Every export writes a `data.exported` audit entry with the dataset, row count and range. Responses are `Cache-Control: no-store`.
+- Exports are built in memory and capped at 50,000 rows (422 `EXPORT_TOO_LARGE`, asking for a narrower range).
+
 ### Analytics definitions
 
 | Metric | Definition |
@@ -200,6 +208,7 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 | `GET /notifications` · `POST /notifications/:id/read` · `POST /notifications/read-all` | membership | Scoped to the signed-in user |
 | `GET /dashboard` | membership | Money section only with analytics:read |
 | `GET /analytics/summary\|timeseries\|breakdown?from&to` | analytics:read | Range limited to two years. Timeseries buckets by week when the range exceeds 120 days. |
+| `GET /exports/orders.csv` · `/customers.csv` · `/payments.csv` `?from&to` | data:export | CSV download. Audited. 422 `EXPORT_TOO_LARGE` over 50,000 rows |
 | `GET /activity` | activity:read | Sanitized feed: no metadata or IP |
 | `GET /audit-logs` | audit:read | Full entries |
 | `GET /health` | public | Database ping |
@@ -218,15 +227,16 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 
 | Suite | Count | Covers |
 |---|---|---|
-| `packages/shared` | 9 | Transitions, totals, payment status, money parsing, role management, invoice due dates and status |
-| `apps/api` (Supertest + real Postgres) | 65 | Auth, sessions, CSRF, RBAC, immediate role revocation, tenant isolation, order lifecycle, stock invariants, DB constraints, low-stock notifications, payments (idempotency, overpayment, refunds, duplicates), audit immutability, tasks, analytics correctness, concurrency, invoice settings, invoices, overdue invoices |
+| `packages/shared` | 15 | Transitions, totals, payment status, money parsing, role management, invoice due dates and status, CSV encoding and formula escaping |
+| `apps/api` (Supertest + real Postgres) | 71 | Auth, sessions, CSRF, RBAC, immediate role revocation, tenant isolation, order lifecycle, stock invariants, DB constraints, low-stock notifications, payments (idempotency, overpayment, refunds, duplicates), audit immutability, tasks, analytics correctness, concurrency, invoice settings, invoices, overdue invoices, CSV exports |
 | `apps/web` (Vitest + RTL) | 7 | Delta semantics, server-error mapping, stock labels |
-| `apps/web/e2e` (Playwright) | 9 | Landing → sign-up, invoice settings and printing, overdue invoices, form validation, full sell-to-paid journey, out-of-stock refusal, command palette, staff restrictions, mobile navigation |
+| `apps/web/e2e` (Playwright) | 10 | Landing → sign-up, invoice settings and printing, overdue invoices, CSV downloads, form validation, full sell-to-paid journey, out-of-stock refusal, command palette, staff restrictions, mobile navigation |
 
 ## 9. Known limitations
 
 - **Invoices are printed, not sent.** There is no emailing or stored PDF; use the browser's "Save as PDF". Invoices use the current seller details, not a snapshot from when they were issued.
 - **No email delivery.** Teammates are added with a starting password the owner shares privately. There are no password-reset emails yet.
+- **Exports are capped at 50,000 rows** and built in memory rather than streamed.
 - **Single currency** per organization. No multi-currency or FX.
 - **No configurable time zone.** Analytics bucket by UTC day; a per-organization time zone would shift day boundaries for non-UTC businesses.
 - **Notifications are polled** (60 s) rather than pushed.
