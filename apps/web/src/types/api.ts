@@ -91,6 +91,8 @@ export interface OrderRow {
   refundedCents: number;
   paymentStatus: PaymentStatus;
   outstandingCents: number;
+  /** Null for drafts, which have no invoice yet. */
+  invoiceStatus: InvoiceStatus | null;
   createdAt: string;
   customer: { id: string; name: string; company: string | null };
   _count: { items: number };

@@ -20,6 +20,7 @@ import { audit } from '../audit/audit.service';
 import { applyStockChanges } from '../inventory/stock';
 import { notifyUsers } from '../notifications/notifications.service';
 import { lockOrder } from './order-lock';
+import { overdueOrderIds, rowInvoiceStatus } from './invoice.service';
 
 type OrderCreate = z.output<typeof orderInputSchema>;
 
@@ -44,6 +45,7 @@ export async function listOrders(ctx: OrgContext, q: OrderListQuery) {
   if (q.status) and.push({ status: q.status });
   if (q.customerId) and.push({ customerId: q.customerId });
   if (q.paymentStatus) and.push(PAYMENT_STATUS_WHERE[q.paymentStatus]);
+  if (q.overdue) and.push({ id: { in: await overdueOrderIds(ctx.organizationId) } });
   if (q.q) {
     const n = Number(q.q.replace(/^#/, ''));
     and.push({
@@ -55,7 +57,7 @@ export async function listOrders(ctx: OrgContext, q: OrderListQuery) {
     });
   }
   const where: Prisma.OrderWhereInput = { AND: and };
-  const [rows, total] = await prisma.$transaction([
+  const [rows, total, org] = await prisma.$transaction([
     prisma.order.findMany({
       where,
       orderBy: [{ [q.sort]: q.dir }, { id: 'asc' }],
@@ -64,8 +66,13 @@ export async function listOrders(ctx: OrgContext, q: OrderListQuery) {
       include: { customer: { select: { id: true, name: true, company: true } }, _count: { select: { items: true } } },
     }),
     prisma.order.count({ where }),
+    prisma.organization.findUniqueOrThrow({ where: { id: ctx.organizationId }, select: { paymentTermsDays: true } }),
   ]);
-  return paginate(rows.map(withPaymentInfo), total, q.page, q.pageSize);
+  const data = rows.map((r) => {
+    const o = withPaymentInfo(r);
+    return { ...o, invoiceStatus: rowInvoiceStatus(o, o.outstandingCents, org.paymentTermsDays) };
+  });
+  return paginate(data, total, q.page, q.pageSize);
 }
 
 export async function getOrder(ctx: OrgContext, id: string) {

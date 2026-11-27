@@ -1,4 +1,5 @@
-import { invoiceDueDate, invoiceStatus, outstandingCents } from '@pulse/shared';
+import { invoiceDueDate, invoiceStatus, outstandingCents, type OrderStatus } from '@pulse/shared';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import type { OrgContext } from '../../types/express';
 import { AppError, notFound } from '../../utils/errors';
@@ -62,4 +63,33 @@ export async function getInvoice(ctx: OrgContext, orderId: string) {
     balanceDueCents,
     payments: order.payments,
   };
+}
+
+/**
+ * SQL for "invoice is overdue": issued (confirmed, not cancelled), a balance remains,
+ * and confirmation + the organization's payment terms is in the past. Mirrors the
+ * shared `invoiceStatus` rule so the list filter, badges and dashboard always agree.
+ */
+const OVERDUE_SQL = Prisma.sql`
+  FROM "Order" o JOIN "Organization" g ON g."id" = o."organizationId"
+  WHERE o."status" IN ('CONFIRMED','FULFILLED','COMPLETED')
+    AND o."totalCents" > o."paidCents" - o."refundedCents"
+    AND o."confirmedAt" + make_interval(days => g."paymentTermsDays") < now()`;
+
+export async function overdueOrderIds(organizationId: string): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`SELECT o."id" ${OVERDUE_SQL} AND o."organizationId" = ${organizationId}::uuid`;
+  return rows.map((r) => r.id);
+}
+
+export async function overdueSummary(organizationId: string) {
+  const [row] = await prisma.$queryRaw<{ count: number; cents: number }[]>`
+    SELECT COUNT(*)::int AS count, COALESCE(SUM(o."totalCents" - (o."paidCents" - o."refundedCents")), 0)::bigint::int AS cents
+    ${OVERDUE_SQL} AND o."organizationId" = ${organizationId}::uuid`;
+  return { count: row?.count ?? 0, cents: row?.cents ?? 0 };
+}
+
+/** Invoice status for a list row; null for drafts, which have no invoice yet. */
+export function rowInvoiceStatus(o: { status: OrderStatus; confirmedAt: Date | null }, balanceCents: number, paymentTermsDays: number) {
+  if (o.status === 'DRAFT' || !o.confirmedAt) return null;
+  return invoiceStatus(o.status, balanceCents, invoiceDueDate(o.confirmedAt, paymentTermsDays));
 }

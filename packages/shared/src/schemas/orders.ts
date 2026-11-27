@@ -30,6 +30,8 @@ export const orderListQuery = paginationQuery.extend({
   status: z.enum(ORDER_STATUSES).optional(),
   paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
   customerId: z.string().uuid().optional(),
+  /** Only orders whose invoice is past its due date with a balance left. Strict: "false" means false. */
+  overdue: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
   sort: z.enum(['number', 'createdAt', 'totalCents']).default('createdAt'),
   dir: sortDir,
 });

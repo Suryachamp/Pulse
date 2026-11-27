@@ -1,27 +1,26 @@
-import { can } from '@pulse/shared';
+import { can, formatMoney } from '@pulse/shared';
 import { prisma } from '../../database/prisma';
 import type { OrgContext } from '../../types/express';
 import { lowStockProducts } from '../inventory/products.service';
 import { taskSummary } from '../tasks/tasks.service';
+import { overdueSummary } from '../orders/invoice.service';
 import * as analytics from './analytics.service';
 
 const DAY = 86_400_000;
 
 async function alerts(ctx: OrgContext, lowStockCount: number, overdueTasks: number) {
   const now = Date.now();
-  const [awaiting, staleReceivables] = await Promise.all([
+  const canSeeMoney = can(ctx.role, 'analytics:read');
+  const [awaiting, overdue] = await Promise.all([
     prisma.order.count({ where: { organizationId: ctx.organizationId, status: 'CONFIRMED', confirmedAt: { lt: new Date(now - 3 * DAY) } } }),
-    prisma.$queryRaw<{ count: number }[]>`
-      SELECT COUNT(*)::int AS count FROM "Order"
-      WHERE "organizationId" = ${ctx.organizationId}::uuid AND "status" IN ('FULFILLED','COMPLETED')
-        AND "fulfilledAt" < ${new Date(now - 30 * DAY)} AND "totalCents" > "paidCents" - "refundedCents"`,
+    canSeeMoney ? overdueSummary(ctx.organizationId) : null,
   ]);
   const list: { id: string; severity: 'critical' | 'warning' | 'info'; title: string; description: string; href: string }[] = [];
   if (lowStockCount) list.push({ id: 'low-stock', severity: 'warning', title: `${lowStockCount} product${lowStockCount === 1 ? '' : 's'} at or below threshold`, description: 'Restock soon to avoid rejected orders.', href: '/app/inventory?stock=low' });
   if (overdueTasks) list.push({ id: 'overdue-tasks', severity: 'critical', title: `${overdueTasks} overdue task${overdueTasks === 1 ? '' : 's'}`, description: 'Past their due date and still open.', href: '/app/tasks?overdue=true' });
   if (awaiting) list.push({ id: 'awaiting-fulfilment', severity: 'warning', title: `${awaiting} order${awaiting === 1 ? '' : 's'} waiting over 3 days`, description: 'Confirmed but not yet fulfilled.', href: '/app/orders?status=CONFIRMED' });
-  const stale = staleReceivables[0]?.count ?? 0;
-  if (stale && can(ctx.role, 'analytics:read')) list.push({ id: 'stale-receivables', severity: 'critical', title: `${stale} delivered order${stale === 1 ? '' : 's'} unpaid after 30 days`, description: 'Follow up on these balances.', href: '/app/orders?status=FULFILLED' });
+  // Uses each invoice's due date (confirmation + payment terms), not a fixed age.
+  if (overdue?.count) list.push({ id: 'overdue-invoices', severity: 'critical', title: `${overdue.count} invoice${overdue.count === 1 ? '' : 's'} overdue`, description: `${formatMoney(overdue.cents)} is past its due date. Follow up with these customers.`, href: '/app/orders?overdue=true' });
   return list;
 }
 

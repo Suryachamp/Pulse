@@ -94,7 +94,7 @@ DRAFT ──confirm──► CONFIRMED ──fulfil──► FULFILLED ──com
 - Only drafts can be edited. Edits re-price items from the current catalog.
 - Order numbers are sequential per organization, using an atomic increment.
 
-**Decision on completion and payment:** completing an order requires fulfilment, not full payment. Businesses that ship on credit can close the order while the balance stays visible as a receivable (receivables aging, "delivered but unpaid" alerts).
+**Decision on completion and payment:** completing an order requires fulfilment, not full payment. Businesses that ship on credit can close the order while the balance stays visible as a receivable (receivables aging, overdue-invoice alerts).
 
 ### Payments
 
@@ -142,6 +142,7 @@ Covered by `apps/api/test/concurrency.test.ts`:
 - **Issue date** is when the order was confirmed. **Due date** is the issue date plus the organization's `paymentTermsDays` (default 14, CHECK-constrained to 0–365). Terms are read when the invoice is viewed, so changing them moves the due date of open invoices too.
 - **Status** (`invoiceStatus` in shared): `VOID` for cancelled orders, `PAID` when nothing is outstanding, `OVERDUE` when a balance remains after the due date, otherwise `DUE`.
 - Drafts return 409 `INVOICE_NOT_AVAILABLE`.
+- **Overdue invoices.** `GET /orders?overdue=true` lists them, each order row carries its `invoiceStatus` (null for drafts), and the dashboard raises an `overdue-invoices` alert with the total past due for roles with `analytics:read`. All three use one SQL predicate (`OVERDUE_SQL` in `invoice.service.ts`) that mirrors the shared `invoiceStatus` rule.
 - The invoice leaves out internal fields: order notes, payment notes and who recorded each payment.
 - The web page renders it as a light paper document at `/app/orders/:id/invoice`, outside the app shell; the browser's print dialog saves it as PDF.
 
@@ -188,7 +189,7 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 | `GET /products?q&stock=all\|low\|out&status&sort` · `GET /products/:id` | products:read | Detail includes movements, units sold and revenue |
 | `POST /products` · `PATCH /products/:id` · archive · restore · `DELETE` | products:write | `initialStock` writes an INITIAL movement |
 | `POST /products/:id/adjustments` | inventory:adjust | `{ type: RESTOCK\|ADJUSTMENT, quantity, reason }` |
-| `GET /orders?q&status&paymentStatus&customerId&sort` · `GET /orders/:id` | orders:read | Detail includes items, payments, history and allowed transitions |
+| `GET /orders?q&status&paymentStatus&overdue&customerId&sort` · `GET /orders/:id` | orders:read | Rows include `invoiceStatus`. `overdue=true` keeps only overdue invoices. Detail includes items, payments, history and allowed transitions |
 | `POST /orders` · `PUT /orders/:id` (draft only) | orders:write | Client prices and totals are ignored |
 | `GET /orders/:id/invoice` | orders:read | Customer-facing invoice. 409 `INVOICE_NOT_AVAILABLE` for drafts |
 | `POST /orders/:id/transitions` | orders:write (+ orders:cancel to cancel) | `{ status, reason? }` |
@@ -218,9 +219,9 @@ All routes are under `/api`. Errors take the form `{ "error": { "code", "message
 | Suite | Count | Covers |
 |---|---|---|
 | `packages/shared` | 9 | Transitions, totals, payment status, money parsing, role management, invoice due dates and status |
-| `apps/api` (Supertest + real Postgres) | 60 | Auth, sessions, CSRF, RBAC, immediate role revocation, tenant isolation, order lifecycle, stock invariants, DB constraints, low-stock notifications, payments (idempotency, overpayment, refunds, duplicates), audit immutability, tasks, analytics correctness, concurrency, invoice settings and invoices |
+| `apps/api` (Supertest + real Postgres) | 65 | Auth, sessions, CSRF, RBAC, immediate role revocation, tenant isolation, order lifecycle, stock invariants, DB constraints, low-stock notifications, payments (idempotency, overpayment, refunds, duplicates), audit immutability, tasks, analytics correctness, concurrency, invoice settings, invoices, overdue invoices |
 | `apps/web` (Vitest + RTL) | 7 | Delta semantics, server-error mapping, stock labels |
-| `apps/web/e2e` (Playwright) | 8 | Landing → sign-up, invoice settings and printing, form validation, full sell-to-paid journey, out-of-stock refusal, command palette, staff restrictions, mobile navigation |
+| `apps/web/e2e` (Playwright) | 9 | Landing → sign-up, invoice settings and printing, overdue invoices, form validation, full sell-to-paid journey, out-of-stock refusal, command palette, staff restrictions, mobile navigation |
 
 ## 9. Known limitations
 

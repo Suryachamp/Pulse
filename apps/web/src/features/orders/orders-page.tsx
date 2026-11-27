@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Plus, ShoppingBag } from 'lucide-react';
+import { CalendarClock, Plus, ShoppingBag } from 'lucide-react';
 import { ORDER_STATUSES, PAYMENT_STATUSES } from '@pulse/shared';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
@@ -16,15 +16,15 @@ import { SortTh, Table, Td, Th, Tr } from '@/components/ui/table';
 import { Tabs, TabsList } from '@/components/ui/tabs';
 
 type Sort = 'number' | 'createdAt' | 'totalCents';
-const DEFAULTS = { q: '', status: '', paymentStatus: '', sort: 'createdAt', dir: 'desc', page: '1' };
+const DEFAULTS = { q: '', status: '', paymentStatus: '', overdue: '', sort: 'createdAt', dir: 'desc', page: '1' };
 
 export default function OrdersPage() {
   const { can } = useSession();
   const navigate = useNavigate();
   const [f, set] = useUrlState(DEFAULTS);
-  const list = useQuery({ queryKey: ['orders', f], queryFn: () => api.get<Paginated<OrderRow>>('/orders', { ...f, page: Number(f.page) }), placeholderData: keepPreviousData });
+  const list = useQuery({ queryKey: ['orders', f], queryFn: () => api.get<Paginated<OrderRow>>('/orders', { ...f, overdue: f.overdue || undefined, page: Number(f.page) }), placeholderData: keepPreviousData });
   const sortProps = { sort: f.sort as Sort, dir: f.dir as 'asc' | 'desc', onSort: (sort: Sort, dir: 'asc' | 'desc') => set({ sort, dir }) };
-  const filtered = !!(f.q || f.status || f.paymentStatus);
+  const filtered = !!(f.q || f.status || f.paymentStatus || f.overdue);
 
   return (
     <div>
@@ -41,9 +41,10 @@ export default function OrdersPage() {
               <TabsList items={[{ value: 'ALL', label: 'All' }, ...ORDER_STATUSES.map((s) => ({ value: s, label: sentence(s) }))]} />
             </Tabs>
           </div>
+          <Button className="xl:ml-auto" variant={f.overdue ? 'primary' : 'secondary'} size="sm" aria-pressed={!!f.overdue} onClick={() => set({ overdue: f.overdue ? '' : 'true' })}><CalendarClock />Overdue only</Button>
           <Select
             aria-label="Filter by payment status"
-            className="xl:ml-auto xl:w-48"
+            className="xl:w-48"
             value={f.paymentStatus || 'ANY'}
             onValueChange={(v) => set({ paymentStatus: v === 'ANY' ? '' : v })}
             options={[{ value: 'ANY', label: 'Any payment status' }, ...PAYMENT_STATUSES.map((s) => ({ value: s, label: sentence(s) }))]}
@@ -51,7 +52,7 @@ export default function OrdersPage() {
         </div>
         {list.isLoading ? <TableSkeleton /> : list.isError ? <ErrorState error={list.error} onRetry={() => list.refetch()} /> : !list.data?.data.length ? (
           filtered ? (
-            <EmptyState icon={ShoppingBag} title="No orders match these filters" description="Try another status or search." action={<Button onClick={() => set({ q: '', status: '', paymentStatus: '' })}>Clear filters</Button>} />
+            <EmptyState icon={ShoppingBag} title={f.overdue && !f.q && !f.status && !f.paymentStatus ? 'No overdue invoices' : 'No orders match these filters'} description={f.overdue ? 'Every issued invoice is paid or still within its payment terms.' : 'Try another status or search.'} action={<Button onClick={() => set({ q: '', status: '', paymentStatus: '', overdue: '' })}>Clear filters</Button>} />
           ) : (
             <EmptyState icon={ShoppingBag} title="Create your first order" description="Pick a customer and products. Totals are calculated for you from catalog prices." action={can('orders:write') && <Button asChild variant="primary"><Link to="/app/orders/new"><Plus />New order</Link></Button>} />
           )
@@ -77,7 +78,7 @@ export default function OrdersPage() {
                     <Td><OrderStatusBadge status={o.status} /></Td>
                     <Td className="hidden md:table-cell"><PaymentStatusBadge status={o.paymentStatus} /></Td>
                     <Td className="tnum text-right">{money(o.totalCents)}</Td>
-                    <Td className={`tnum hidden text-right lg:table-cell ${o.outstandingCents ? 'text-brass' : 'text-faint'}`}>{money(o.outstandingCents)}</Td>
+                    <Td className={`tnum hidden text-right lg:table-cell ${o.invoiceStatus === 'OVERDUE' ? 'text-rose' : o.outstandingCents ? 'text-brass' : 'text-faint'}`}>{money(o.outstandingCents)}{o.invoiceStatus === 'OVERDUE' && <span className="block text-xs font-medium">Overdue</span>}</Td>
                     <Td className="hidden text-mist sm:table-cell">{date(o.createdAt)}</Td>
                   </Tr>
                 ))}

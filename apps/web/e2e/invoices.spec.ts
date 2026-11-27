@@ -45,3 +45,36 @@ test('owner sets invoice details and prints an invoice for a confirmed order', a
   await page.getByRole('link', { name: 'Back to order' }).click();
   await expect(page.getByRole('heading', { name: /Order #1/ })).toBeVisible();
 });
+
+test('overdue invoices surface on the dashboard and filter the order list', async ({ page }) => {
+  await registerWorkspace(page);
+  // With zero-day terms an invoice falls due the moment its order is confirmed.
+  await page.goto('/app/settings');
+  const invoices = page.getByRole('region', { name: 'Invoices' });
+  await invoices.getByLabel('Payment terms (days)').fill('0');
+  await invoices.getByRole('button', { name: 'Save invoice details' }).click();
+  await expect(page.getByText('Invoice details saved')).toBeVisible();
+
+  await createProduct(page, { name: 'Brass Hook', sku: 'HK-BR', price: '12.50', stock: 10 });
+  await createCustomer(page, 'Tidewater Inn');
+  await createDraftOrder(page, 'Tidewater Inn', 'Brass Hook', 4);
+  await page.getByRole('button', { name: 'Confirm order' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirm order' }).click();
+  await expect(page.getByText('Order confirmed. Stock reserved.')).toBeVisible();
+  await createDraftOrder(page, 'Tidewater Inn', 'Brass Hook', 1); // drafts are never overdue
+
+  await page.goto('/app');
+  const alert = page.getByRole('link', { name: /1 invoice overdue/ });
+  await expect(alert).toContainText('$50.00');
+  await alert.click();
+
+  await expect(page).toHaveURL(/overdue=true/);
+  await expect(page.getByRole('button', { name: 'Overdue only' })).toHaveAttribute('aria-pressed', 'true');
+  const rows = page.locator('tbody tr');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('#1');
+  await expect(rows.first()).toContainText('Overdue');
+
+  await page.getByRole('button', { name: 'Overdue only' }).click();
+  await expect(rows).toHaveCount(2);
+});
